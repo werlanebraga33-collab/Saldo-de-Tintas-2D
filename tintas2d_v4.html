@@ -1,0 +1,213 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Consumo de Tintas 2D – v4 (meta responsivo)</title>
+  <style>
+    :root{
+      --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#667085; --line:#E5E7EB; --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,"Noto Sans",sans-serif;color:var(--text)}
+    .wrap{max-width:900px;margin:0 auto;padding:16px 16px 28px}
+    h1{font-size:22px;letter-spacing:-.3px;margin:8px 0 10px}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:0 4px 20px rgba(0,0,0,.06);padding:14px}
+    .grid{display:grid;gap:10px}
+    .g3{grid-template-columns:1fr 1fr 1fr}
+    .g4{grid-template-columns:1fr 1fr 1fr 1fr}
+    label{font-size:12px;color:var(--muted)}
+    input,select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:14px}
+    .btn{appearance:none;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;font-weight:600;font-size:14px}
+    .btn.primary{background:#111;color:#fff;border-color:#111}
+    .muted{color:var(--muted);font-size:12px}
+    /* sheet */
+    .sheet{background:#fff;border-radius:20px;padding:14px;border:1px solid var(--line)}
+    .hdr{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-weight:700;margin-bottom:10px}
+    .hdr span{font-size:16px;letter-spacing:.3px}
+    /* META: responsivo, quebra de linha e sem elipse */
+    .meta{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px;margin-bottom:8px}
+    .box{border:1px solid var(--line);border-radius:14px;padding:8px 10px;font-size:14px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .label{color:var(--muted);font-weight:600}
+    .value{font-weight:700}
+    table{width:100%;border-collapse:collapse;table-layout:fixed}
+    th, td{border:1px solid var(--line);padding:10px;text-align:center;font-size:14px}
+    thead th{background:#f3f4f6}
+    tfoot td{background:#fafafa;font-weight:700}
+    .row-controls{display:flex;gap:8px;justify-content:flex-end}
+    .preview{border:1px dashed var(--line);border-radius:14px;overflow:hidden}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Consumo de Tintas 2D – Gerador de Tabela (v4)</h1>
+    <div class="card grid">
+      <div class="grid g3">
+        <div><label>Responsável</label><input id="resp" placeholder="Ex.: José Verlaine"></div>
+        <div><label>Turno</label>
+          <select id="turno">
+            <option>1º</option>
+            <option selected>2º</option>
+            <option>3º</option>
+          </select>
+        </div>
+        <div><label>Data</label><input id="data" type="date"></div>
+      </div>
+      <div class="row-controls">
+        <button class="btn" id="add">+ Linha</button>
+        <button class="btn primary" id="share">Gerar & Compartilhar</button>
+        <button class="btn" id="download">Baixar PNG</button>
+      </div>
+      <div class="muted">Dica: use vírgula ou ponto para decimais (ex.: 3,77 ou 3.77). Totais somam automático.</div>
+    </div>
+
+    <!-- Renderizado -->
+    <div class="sheet" id="sheet">
+      <div class="hdr"><span>CONSUMO DE TINTAS 2D</span></div>
+      <div class="meta">
+        <div class="box"><span class="label">Responsável:</span><span class="value" id="out-resp"></span></div>
+        <div class="box"><span class="label">Turno:</span><span class="value" id="out-turno">2º</span></div>
+        <div class="box"><span class="label">Data:</span><span class="value" id="out-data"></span></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Preto</th>
+            <th>Cyan</th>
+            <th>Magenta</th>
+            <th>Amarelo</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot>
+          <tr>
+            <td id="totP">0,00</td>
+            <td id="totC">0,00</td>
+            <td id="totM">0,00</td>
+            <td id="totA">0,00</td>
+          </tr>
+        </tfoot>
+      </table>
+      <div class="muted" style="margin-top:8px">Gerado em <span id="now"></span></div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="muted">Prévia (após gerar):</div>
+      <img id="preview" class="preview" alt="">
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/html-to-image@1.11.11/dist/html-to-image.js"></script>
+  <script>
+    const tbody = document.getElementById('tbody');
+    const items = [];
+
+    function todayISO(){
+      const d = new Date();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${d.getFullYear()}-${m}-${day}`;
+    }
+    function br(num){ return num.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+    function parseNum(v){
+      if(v===undefined||v===null||v==='') return 0;
+      const s = String(v).replace(/\./g, '').replace(',', '.'); // 3,5 -> 3.5
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function addRow(values={P:'',C:'',M:'',A:''}){
+      items.push(values);
+      renderEditor(); renderSheet();
+    }
+
+    function renderEditor(){
+      let ed = document.getElementById('editor');
+      if(!ed){
+        ed = document.createElement('div');
+        ed.id = 'editor';
+        ed.className = 'card grid';
+        document.querySelector('.wrap').insertBefore(ed, document.getElementById('sheet'));
+      }
+      ed.innerHTML = '<div class="muted">Editor de linhas (não aparece na imagem):</div>';
+      items.forEach((it, idx) => {
+        const row = document.createElement('div');
+        row.className = 'grid g4';
+        row.innerHTML = `
+          <input placeholder="Preto" value="${it.P}">
+          <input placeholder="Cyan" value="${it.C}">
+          <input placeholder="Magenta" value="${it.M}">
+          <input placeholder="Amarelo" value="${it.A}">
+        `;
+        const [p,c,m,a] = row.querySelectorAll('input');
+        p.oninput = ()=>{ it.P=p.value; renderSheet(); };
+        c.oninput = ()=>{ it.C=c.value; renderSheet(); };
+        m.oninput = ()=>{ it.M=m.value; renderSheet(); };
+        a.oninput = ()=>{ it.A=a.value; renderSheet(); };
+        ed.appendChild(row);
+      });
+    }
+
+    function renderSheet(){
+      tbody.innerHTML = '';
+      let tP=0,tC=0,tM=0,tA=0;
+      items.forEach(it => {
+        const tr = document.createElement('tr');
+        const nP=parseNum(it.P), nC=parseNum(it.C), nM=parseNum(it.M), nA=parseNum(it.A);
+        tP+=nP; tC+=nC; tM+=nM; tA+=nA;
+        tr.innerHTML = `
+          <td>${it.P || ''}</td>
+          <td>${it.C || ''}</td>
+          <td>${it.M || ''}</td>
+          <td>${it.A || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('totP').textContent = br(tP);
+      document.getElementById('totC').textContent = br(tC);
+      document.getElementById('totM').textContent = br(tM);
+      document.getElementById('totA').textContent = br(tA);
+
+      // meta
+      document.getElementById('out-resp').textContent = document.getElementById('resp').value || '';
+      document.getElementById('out-turno').textContent = document.getElementById('turno').value || '';
+      const data = document.getElementById('data').value;
+      document.getElementById('out-data').textContent = data ? data.split('-').reverse().join('/') : '';
+      document.getElementById('now').textContent = new Date().toLocaleString('pt-BR');
+    }
+
+    async function generate(tryShare=true, forceDownload=false){
+      renderSheet();
+      const node = document.getElementById('sheet');
+      try{
+        const blob = await htmlToImage.toBlob(node, {pixelRatio:2, backgroundColor:'#ffffff'});
+        if(!blob) throw new Error('Falha ao gerar');
+        const url = URL.createObjectURL(blob);
+        document.getElementById('preview').src = url;
+        if(tryShare && navigator.canShare && navigator.canShare({files:[new File([blob],'tintas2d.png',{type:'image/png'})]})){
+          const file = new File([blob], `tintas2d-${Date.now()}.png`, {type:'image/png'});
+          await navigator.share({title:'Consumo de Tintas 2D', files:[file]});
+        } else if(forceDownload || !tryShare){
+          const a = document.createElement('a');
+          a.href = url; a.download = `tintas2d-${Date.now()}.png`; a.click();
+        }
+      }catch(e){
+        alert('Não foi possível gerar/compartilhar. Use Baixar PNG.');
+        console.error(e);
+      }
+    }
+
+    document.getElementById('add').onclick = ()=> addRow({P:'',C:'',M:'',A:''});
+    document.getElementById('download').onclick = ()=> generate(false,true);
+    document.getElementById('share').onclick = ()=> generate(true,false);
+    ['resp','turno','data'].forEach(id => document.getElementById(id).addEventListener('input', renderSheet));
+
+    // inicia com 6 linhas e data de hoje
+    for(let i=0;i<6;i++) addRow({P:'',C:'',M:'',A:''});
+    const dataInput = document.getElementById('data');
+    if(!dataInput.value) { dataInput.value = todayISO(); }
+    renderSheet();
+  </script>
+</body>
+</html>
