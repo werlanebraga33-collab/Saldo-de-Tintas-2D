@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Consumo de Tintas 2D – v4 (meta responsivo)</title>
+  <title>Saldo de Tintas 2D</title>
   <style>
     :root{
       --bg:#f6f7f9; --card:#fff; --text:#111; --muted:#667085; --line:#E5E7EB; --radius:18px;
@@ -41,7 +40,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Consumo de Tintas 2D – Gerador de Tabela (v4)</h1>
+    <h1>Saldo de Tintas 2D – Gerador de Tabela (v4)</h1>
     <div class="card grid">
       <div class="grid g3">
         <div><label>Responsável</label><input id="resp" placeholder="Ex.: José Verlaine"></div>
@@ -64,7 +63,7 @@
 
     <!-- Renderizado -->
     <div class="sheet" id="sheet">
-      <div class="hdr"><span>CONSUMO DE TINTAS 2D</span></div>
+      <div class="hdr"><span>SALDO DE TINTAS 2D</span></div>
       <div class="meta">
         <div class="box"><span class="label">Responsável:</span><span class="value" id="out-resp"></span></div>
         <div class="box"><span class="label">Turno:</span><span class="value" id="out-turno">2º</span></div>
@@ -187,7 +186,7 @@
         document.getElementById('preview').src = url;
         if(tryShare && navigator.canShare && navigator.canShare({files:[new File([blob],'tintas2d.png',{type:'image/png'})]})){
           const file = new File([blob], `tintas2d-${Date.now()}.png`, {type:'image/png'});
-          await navigator.share({title:'Consumo de Tintas 2D', files:[file]});
+          await navigator.share({title:'Saldo de Tintas 2D', files:[file]});
         } else if(forceDownload || !tryShare){
           const a = document.createElement('a');
           a.href = url; a.download = `tintas2d-${Date.now()}.png`; a.click();
